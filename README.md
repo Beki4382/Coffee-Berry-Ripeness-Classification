@@ -1,1 +1,0 @@
-# Coffee-berry-ripeness-classification

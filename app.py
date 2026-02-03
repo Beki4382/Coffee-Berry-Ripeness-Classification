@@ -21,7 +21,7 @@ def predict(image: Image.Image):
     img_array = np.array(image.convert("RGB"))
     results = model.predict(source=img_array, verbose=False)
     if not results:
-        return None, None
+        return None, None, None
 
     result = results[0]
     if getattr(result, "probs", None) is not None:
@@ -29,7 +29,7 @@ def predict(image: Image.Image):
         top1_idx = int(probs.top1)
         top1_conf = float(probs.top1conf)
         label = result.names.get(top1_idx, str(top1_idx))
-        return label, top1_conf
+        return label, top1_conf, None
 
     # Fallback for detection-style outputs
     if getattr(result, "boxes", None) is not None and result.boxes:
@@ -37,9 +37,11 @@ def predict(image: Image.Image):
         for cls_idx, conf in zip(result.boxes.cls.tolist(), result.boxes.conf.tolist()):
             label = result.names.get(int(cls_idx), str(int(cls_idx)))
             labels.append((label, float(conf)))
-        return labels, None
+        annotated = result.plot()
+        annotated_image = Image.fromarray(annotated[..., ::-1])
+        return labels, None, annotated_image
 
-    return None, None
+    return None, None, None
 
 
 uploaded = st.file_uploader("Choose an image", type=["jpg", "jpeg", "png"])
@@ -49,7 +51,7 @@ if uploaded is not None:
 
     if st.button("Run classification"):
         with st.spinner("Running model..."):
-            label, confidence = predict(image)
+            label, confidence, annotated_image = predict(image)
 
         if label is None:
             st.error("No prediction returned.")
@@ -57,6 +59,12 @@ if uploaded is not None:
             st.subheader("Detections")
             for det_label, det_conf in label:
                 st.write(f"{det_label}: {det_conf:.2%}")
+            if annotated_image is not None:
+                st.image(
+                    annotated_image,
+                    caption="YOLO detections",
+                    use_container_width=True,
+                )
         else:
             st.subheader("Prediction")
             st.write(f"Label: {label}")
